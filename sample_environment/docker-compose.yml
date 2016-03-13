@@ -1,0 +1,51 @@
+data:
+  image: busybox
+  volumes:
+    - ./../www:/www
+    - ./../profiler_data:/profiler_data
+db:
+  image: mysql
+  ports:
+    - "3306:3306"
+  environment:
+    MYSQL_ROOT_PASSWORD: password
+
+mailcatcher:
+  build: mailcatcher
+  ports:
+    - 1080:1080
+    - 1025:1025
+phpfpm:
+  build: phpfpm
+  volumes_from:
+    - data
+  links:
+    - db
+    - mailcatcher
+        # - redis
+
+web:
+  build: nginx
+  volumes_from:
+    - data
+  links:
+    - phpfpm:fpm
+    - mailcatcher
+  ports:
+    # - 80:80
+    - 443:433
+  environment:
+    VIRTUAL_HOST: info.dev,mail.dev
+
+cron_data:
+  image: busybox
+  volumes:
+      - ./cron/cron:/cron
+cron:
+  build: cron
+  command: bash -c "chmod a+x /cron/job.sh && devcron.py /cron/crontab"
+  volumes_from:
+      - cron_data
+      - data
+  links:
+      - db
